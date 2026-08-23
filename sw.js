@@ -4,7 +4,7 @@
 
 const CACHE_NAME = 'regulasi-pajak-paser-v2';
 const APP_SHELL = [
-  './regulasi-pajak-paser.html',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
