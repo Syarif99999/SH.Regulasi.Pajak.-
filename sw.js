@@ -2,7 +2,7 @@
 // setelah pertama kali dimuat. Cache "app-shell" hanya berisi halaman utama;
 // data regulasi tetap tersimpan di localStorage browser, bukan di sini.
 
-const CACHE_NAME = 'regulasi-pajak-paser-v2';
+const CACHE_NAME = 'regulasi-pajak-paser-v3';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
