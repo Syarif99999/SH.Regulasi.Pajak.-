@@ -4,7 +4,7 @@
 
 const CACHE_NAME = 'regulasi-pajak-paser-v3';
 const APP_SHELL = [
-  './index.html',
+  './regulasi-pajak-paser.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -27,18 +27,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first untuk library CDN (xlsx, jsPDF) supaya selalu dapat versi terbaru saat online;
-  // fallback ke cache saat offline. Untuk file aplikasi sendiri, cache-first.
-  const url = event.request.url;
-  const isCDN = url.includes('cdnjs.cloudflare.com');
-
-  if (isCDN) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
-    );
-  }
+  // Network-first untuk SEMUA file (halaman utama, manifest, CDN):
+  // selalu coba ambil versi terbaru dari server dulu setiap kali online,
+  // supaya update SEED_DATA/kode baru langsung kepakai tanpa nyangkut di
+  // cache lama. Cache hanya dipakai sebagai fallback saat offline.
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });

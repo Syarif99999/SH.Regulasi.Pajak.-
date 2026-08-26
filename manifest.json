@@ -2,7 +2,7 @@
   "name": "Regulasi Pajak Daerah - BAPENDA Kabupaten Paser",
   "short_name": "Regulasi Pajak Paser",
   "description": "Aplikasi database regulasi pajak daerah Kabupaten Paser",
-  "start_url": "./index.html",
+  "start_url": "./regulasi-pajak-paser.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F4F6FA",

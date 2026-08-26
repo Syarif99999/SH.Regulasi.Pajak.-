@@ -234,11 +234,70 @@ const SEED_DATA = {
   HIMBAUAN: []
 };
 
+// --- Auto-merge: setiap kali SEED_DATA di kode ini bertambah (ada perda baru
+// yang ditambahkan langsung di source), item barunya otomatis ikut masuk ke
+// data yang sudah tersimpan di HP user — TANPA menghapus atau menimpa data
+// lama / editan manual user. Dicocokkan pakai "kunci unik" per regulasi
+// (nomor + tentang), bukan berdasarkan urutan/"no", supaya aman walau user
+// sudah mengedit atau menghapus baris tertentu. ---
+const MERGED_KEYS_LS = 'warkop_regulasi_merged_keys';
+
+function regKey(item) {
+  return ((item.nomor || '') + '|' + (item.tentang || ''))
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function loadData() {
   const raw = localStorage.getItem(LS_KEY);
-  if (raw) return JSON.parse(raw);
-  localStorage.setItem(LS_KEY, JSON.stringify(SEED_DATA));
-  return SEED_DATA;
+
+  // Pertama kali dibuka: langsung pakai SEED_DATA apa adanya.
+  if (!raw) {
+    localStorage.setItem(LS_KEY, JSON.stringify(SEED_DATA));
+    localStorage.setItem(MERGED_KEYS_LS, JSON.stringify(SEED_DATA.REGULASI.map(regKey)));
+    return SEED_DATA;
+  }
+
+  const data = JSON.parse(raw);
+  if (!data.REGULASI) data.REGULASI = [];
+  if (!data.HIMBAUAN) data.HIMBAUAN = [];
+
+  // Kunci-kunci dari SEED_DATA yang PERNAH di-merge sebelumnya di HP ini.
+  // Kalau belum pernah tercatat (misal ini update pertama setelah perbaikan
+  // ini dipasang), anggap semua yang SUDAH ADA di data user saat ini sebagai
+  // "sudah pernah merge", supaya tidak dobel — hanya seed baru yang masuk.
+  let mergedKeysRaw = localStorage.getItem(MERGED_KEYS_LS);
+  let mergedKeys;
+  if (mergedKeysRaw) {
+    mergedKeys = new Set(JSON.parse(mergedKeysRaw));
+  } else {
+    mergedKeys = new Set(data.REGULASI.map(regKey));
+  }
+
+  const existingKeys = new Set(data.REGULASI.map(regKey));
+  let addedCount = 0;
+
+  SEED_DATA.REGULASI.forEach((seedItem) => {
+    const key = regKey(seedItem);
+    // Seed item ini belum pernah masuk ke data user DAN belum ada juga
+    // (jaga-jaga kalau user kebetulan sudah input manual yang sama) -> tambah.
+    if (!mergedKeys.has(key) && !existingKeys.has(key)) {
+      data.REGULASI.push(seedItem);
+      existingKeys.add(key);
+      addedCount++;
+    }
+    mergedKeys.add(key); // catat sebagai sudah diproses, apapun hasilnya
+  });
+
+  if (addedCount > 0) {
+    // Renumber ulang kolom "no" biar urut rapi 1..n
+    data.REGULASI.forEach((item, idx) => { item.no = idx + 1; });
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  }
+  localStorage.setItem(MERGED_KEYS_LS, JSON.stringify([...mergedKeys]));
+
+  return data;
 }
 function saveData(data) { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
 
