@@ -99,6 +99,7 @@
     display: inline-flex; align-items: center; gap: 4px;
   }
   .linkbtn:hover { text-decoration: underline; }
+  .linkbtn.danger { color: var(--red); }
   .no-link { font-size: 12px; color: #cbd5e1; }
 
   .empty { text-align: center; padding: 40px 20px; color: var(--gray); font-size: 13.5px; }
@@ -481,6 +482,7 @@ function renderList() {
           <span class="tanggal">🗓️ ${escapeHtml(d.tanggal || 'Tanggal tidak tercatat')}</span>
           ${linkHtml}
           <a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
+          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>
         </div>
       </div>`;
     })
@@ -869,6 +871,31 @@ window.editRegulasi = function (sheet, no) {
   editingNo = no;
   document.getElementById('btnSimpanManual').textContent = '💾 Simpan Perubahan';
   document.getElementById('formTambah').scrollIntoView({ behavior: 'smooth' });
+};
+
+// --- Hapus regulasi ---
+window.deleteRegulasi = function (sheet, no) {
+  if (sheet !== currentSheet) return;
+  const data = loadData();
+  const existing = data[sheet] || [];
+  const item = existing.find((d) => d.no === no);
+  if (!item) { showToast('❌ Regulasi tidak ditemukan.'); return; }
+
+  const konfirmasi = confirm(`Hapus regulasi "${item.tentang || item.nomor || '-'}"?\n\nTindakan ini tidak bisa dibatalkan.`);
+  if (!konfirmasi) return;
+
+  data[sheet] = existing.filter((d) => d.no !== no);
+  saveData(data);
+
+  // Kalau item yang sedang diedit ikut terhapus, tutup form edit
+  if (editingNo === no) {
+    editingNo = null;
+    document.getElementById('formTambah').style.display = 'none';
+    document.getElementById('btnSimpanManual').textContent = '💾 Simpan Regulasi';
+  }
+
+  renderAll();
+  showToast('🗑️ Regulasi berhasil dihapus.');
 };
 
 // --- Init ---
