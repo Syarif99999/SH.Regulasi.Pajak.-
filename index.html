@@ -139,6 +139,7 @@
   <p style="margin-top:4px;font-size:11px;opacity:0.75">
     Jalan Basuki Rahmat No. 01 Tanah Grogot, Kab. Paser, Kode Pos 76211 &middot;
     081345393991 &middot; bapenda.paserkab.go.id &middot; bapendakab.paser@gmail.com
+    &middot; <a id="btnAdminLock" href="javascript:void(0)" style="color:inherit;opacity:0.45;text-decoration:none;font-size:10px;">🔒</a>
   </p>
 </header>
 
@@ -162,10 +163,10 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-navy" id="btnTambah">➕ Tambah Regulasi</button>
+      <button class="btn btn-navy" id="btnTambah" style="display:none">➕ Tambah Regulasi</button>
       <button class="btn btn-outline" id="btnExportXlsx">📊 Unduh Excel</button>
       <button class="btn btn-outline" id="btnExportPdf">📄 Unduh PDF</button>
-      <button class="btn btn-gold" id="btnToggleAdmin">⚙️ Impor / Kelola Data</button>
+      <button class="btn btn-gold" id="btnToggleAdmin" style="display:none">⚙️ Impor / Kelola Data</button>
       <button class="btn btn-outline" id="btnInstall" style="display:none">📲 Install ke HP/Komputer</button>
     </div>
   </div>
@@ -439,6 +440,55 @@ function renderStats() {
   `;
 }
 
+// =============================================================================
+// MODE ADMIN — supaya link yang dibagikan ke orang lain hanya bisa LIHAT.
+// Hanya perangkat yang tahu PIN yang bisa melihat tombol Edit/Hapus/Tambah/Impor.
+// PIN sudah diatur oleh kanda. Untuk mengganti PIN nanti:
+// jalankan di console browser: crypto.subtle.digest('SHA-256', new TextEncoder().encode('PIN_BARU'))
+// lalu ganti nilai PIN_HASH_ASLI di bawah dengan hasilnya (format hex).
+// =============================================================================
+const PIN_HASH_ASLI = 'b1ecd5d49460db9d58b81e93f2d8b3f4557cad27f4ccc71150428fe151cb3058'; // PIN admin milik kanda
+
+function isAdmin() {
+  return localStorage.getItem('regulasiAdminMode') === 'true';
+}
+
+async function sha256Hex(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function unlockAdmin() {
+  const pin = prompt('Masukkan PIN Admin untuk mengaktifkan mode edit di perangkat ini:');
+  if (pin === null) return;
+  const hash = await sha256Hex(pin.trim());
+  if (hash === PIN_HASH_ASLI) {
+    localStorage.setItem('regulasiAdminMode', 'true');
+    showToast('🔓 Mode Admin aktif di perangkat ini.');
+    applyAdminVisibility();
+    renderAll();
+  } else {
+    showToast('❌ PIN salah.');
+  }
+}
+
+function lockAdmin() {
+  localStorage.removeItem('regulasiAdminMode');
+  showToast('🔒 Mode Admin dimatikan di perangkat ini.');
+  document.getElementById('adminPanel').style.display = 'none';
+  applyAdminVisibility();
+  renderAll();
+}
+
+function applyAdminVisibility() {
+  const admin = isAdmin();
+  document.getElementById('btnTambah').style.display = admin ? '' : 'none';
+  document.getElementById('btnToggleAdmin').style.display = admin ? '' : 'none';
+  const lockLink = document.getElementById('btnAdminLock');
+  if (lockLink) lockLink.textContent = admin ? '🔓 Mode Admin aktif (klik untuk keluar)' : '🔒';
+}
+
 function renderList() {
   const data = loadData()[currentSheet] || [];
   const kw = document.getElementById('search').value.toLowerCase().trim();
@@ -481,8 +531,8 @@ function renderList() {
         <div class="meta">
           <span class="tanggal">🗓️ ${escapeHtml(d.tanggal || 'Tanggal tidak tercatat')}</span>
           ${linkHtml}
-          <a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
-          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>
+          ${isAdmin() ? `<a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
+          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>` : ''}
         </div>
       </div>`;
     })
@@ -503,6 +553,7 @@ function renderAll() {
 // IMPOR EXCEL — menambahkan baris baru ke sheet aktif
 // =============================================================================
 async function importExcel(file) {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu untuk mengimpor data.'); return; }
   const buffer = await file.arrayBuffer();
   let wb;
   try {
@@ -780,10 +831,12 @@ document.querySelectorAll('.tab').forEach((tab) => {
 document.getElementById('btnExportXlsx').addEventListener('click', exportXlsx);
 document.getElementById('btnExportPdf').addEventListener('click', exportPdf);
 document.getElementById('btnToggleAdmin').addEventListener('click', () => {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   const panel = document.getElementById('adminPanel');
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 document.getElementById('btnTambah').addEventListener('click', () => {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   editingNo = null;
   document.getElementById('btnSimpanManual').textContent = '💾 Simpan Regulasi';
   ['fNomor', 'fTanggal', 'fTentang', 'fLink'].forEach((id) => (document.getElementById(id).value = ''));
@@ -810,6 +863,7 @@ fileInput.addEventListener('change', (e) => {
 let editingNo = null;
 
 document.getElementById('btnSimpanManual').addEventListener('click', () => {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu untuk menyimpan data.'); return; }
   const peraturan = document.getElementById('fPeraturan').value;
   const nomor = document.getElementById('fNomor').value.trim();
   const tanggal = document.getElementById('fTanggal').value.trim();
@@ -854,6 +908,7 @@ document.getElementById('btnSimpanManual').addEventListener('click', () => {
 
 // --- Edit regulasi yang sudah ada (perbaiki salah ketik) ---
 window.editRegulasi = function (sheet, no) {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   if (sheet !== currentSheet) return;
   const data = loadData();
   const item = (data[sheet] || []).find((d) => d.no === no);
@@ -875,6 +930,7 @@ window.editRegulasi = function (sheet, no) {
 
 // --- Hapus regulasi ---
 window.deleteRegulasi = function (sheet, no) {
+  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   if (sheet !== currentSheet) return;
   const data = loadData();
   const existing = data[sheet] || [];
@@ -899,6 +955,14 @@ window.deleteRegulasi = function (sheet, no) {
 };
 
 // --- Init ---
+document.getElementById('btnAdminLock').addEventListener('click', () => {
+  if (isAdmin()) {
+    if (confirm('Matikan Mode Admin di perangkat ini?')) lockAdmin();
+  } else {
+    unlockAdmin();
+  }
+});
+applyAdminVisibility();
 renderAll();
 initCloudSync();
 
