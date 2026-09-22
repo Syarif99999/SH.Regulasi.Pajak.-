@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#1B2A4A" />
 
 <!-- Library via CDN, tanpa server, cocok untuk GitHub Pages -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -34,28 +35,28 @@
   header {
     background: linear-gradient(135deg, var(--navy), var(--navy2));
     color: white; padding: 22px 18px 60px;
-    position: relative;
   }
   header .top { display:flex; align-items:center; gap:10px; }
   header .badge { background: var(--gold); color: var(--navy); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 5px; }
-  .subtle-lock { position:absolute; top:9px; right:12px; width:22px; height:22px; padding:0; border:0; background:transparent; color:rgba(255,255,255,.28); font-size:13px; cursor:pointer; opacity:.55; transition:opacity .2s,color .2s,transform .2s; }
-  .subtle-lock:hover, .subtle-lock:focus-visible { color:rgba(255,255,255,.9); opacity:1; transform:scale(1.12); outline:none; }
-  .subtle-lock.unlocked { color:rgba(239,208,92,.85); opacity:.8; }
   header h1 { font-size: 19px; margin: 10px 0 2px; }
   header p { margin: 0; font-size: 12.5px; opacity: 0.85; }
 
-  main { max-width: 900px; margin: -38px auto 60px; padding: 0 16px; }
+  main { max-width: 900px; margin: -38px auto 60px; padding: 0 16px; position: relative; z-index: 2; }
 
   .toolbar {
     background: white; border-radius: 14px; box-shadow: 0 4px 18px rgba(27,42,74,0.10);
-    padding: 16px; margin-bottom: 18px;
+    padding: 16px; margin-bottom: 18px; position: relative; z-index: 2;
   }
-  .searchRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .searchRow { display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 3; }
   .searchRow input[type="text"] {
-    flex: 1; min-width: 180px; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 13.5px;
+    width: 100%; padding: 12px 14px; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 14px;
+    position: relative; z-index: 3; pointer-events: auto; background: white;
   }
+  .filterRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filterRow select { flex: 1; min-width: 130px; }
   select {
     padding: 10px 10px; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 13px; background: white;
+    position: relative; z-index: 3;
   }
   .tabs { display: flex; gap: 6px; margin-top: 12px; }
   .tab {
@@ -139,7 +140,6 @@
     <span class="badge">BAPENDA KABUPATEN PASER</span>
     <span class="badge" id="syncStatus" style="background:#334966;color:#fff;">⏳ Menyambungkan...</span>
   </div>
-    <button class="subtle-lock" id="btnToggleAdmin" type="button" aria-label="Akses admin" title="Akses admin">🔒</button>
   <h1>Regulasi Pajak Daerah</h1>
   <p>Kumpulan Perda, Perbup, SK, dan Surat Edaran terkait pajak &amp; retribusi daerah — bisa diakses seluruh pegawai.</p>
   <p style="margin-top:4px;font-size:11px;opacity:0.75">
@@ -153,21 +153,23 @@
   <div class="toolbar">
     <div class="searchRow">
       <input type="text" id="search" placeholder="Cari nomor, judul, atau kata kunci..." />
-      <select id="filterKategori"><option value="">Semua Jenis</option></select>
-      <select id="filterStatus">
-        <option value="">Semua Status</option>
-        <option value="DITERBITKAN">Diterbitkan</option>
-        <option value="ON PROGRES">On Progres</option>
-        <option value="DICABUT">Dicabut</option>
-      </select>
-      <select id="filterTahun"><option value="">Semua Tahun</option></select>
-      <select id="sortBy">
-        <option value="baru">Urutkan: Terbaru Ditambahkan</option>
-        <option value="lama">Urutkan: Terlama Ditambahkan</option>
-        <option value="tanggal_baru">Urutkan: Tanggal Terbaru</option>
-        <option value="tanggal_lama">Urutkan: Tanggal Terlama</option>
-        <option value="az">Urutkan: Tentang (A-Z)</option>
-      </select>
+      <div class="filterRow">
+        <select id="filterKategori"><option value="">Semua Jenis</option></select>
+        <select id="filterStatus">
+          <option value="">Semua Status</option>
+          <option value="DITERBITKAN">Diterbitkan</option>
+          <option value="ON PROGRES">On Progres</option>
+          <option value="DICABUT">Dicabut</option>
+        </select>
+        <select id="filterTahun"><option value="">Semua Tahun</option></select>
+        <select id="sortBy">
+          <option value="baru">Urutkan: Terbaru Ditambahkan</option>
+          <option value="lama">Urutkan: Terlama Ditambahkan</option>
+          <option value="tanggal_baru">Urutkan: Tanggal Terbaru</option>
+          <option value="tanggal_lama">Urutkan: Tanggal Terlama</option>
+          <option value="az">Urutkan: Tentang (A-Z)</option>
+        </select>
+      </div>
     </div>
 
     <div class="tabs">
@@ -176,12 +178,14 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-navy admin-only" id="btnTambah">➕ Tambah Regulasi</button>
-      <button class="btn btn-outline admin-only" id="btnExportPdf">📄 Unduh PDF</button>
-      <button class="btn btn-outline admin-only" id="btnBackup">💾 Backup Data</button>
-      <button class="btn btn-outline admin-only" id="btnRestore">♻️ Pulihkan Data</button>
+      <button class="btn btn-navy" id="btnTambah">➕ Tambah Regulasi</button>
+      <button class="btn btn-outline" id="btnExportXlsx">📊 Unduh Excel</button>
+      <button class="btn btn-outline" id="btnExportPdf">📄 Unduh PDF</button>
+      <button class="btn btn-gold" id="btnToggleAdmin">⚙️ Impor / Kelola Data</button>
+      <button class="btn btn-outline" id="btnBackup">💾 Backup Data</button>
+      <button class="btn btn-outline" id="btnRestore">♻️ Pulihkan Data</button>
       <input type="file" id="restoreInput" accept=".json" style="display:none" />
-      <button class="btn btn-outline admin-only" id="btnResetData" style="color:var(--red);border-color:var(--red)">🗑️ Reset ke Data Awal</button>
+      <button class="btn btn-outline" id="btnResetData" style="color:var(--red);border-color:var(--red)">🗑️ Reset ke Data Awal</button>
       <button class="btn btn-outline" id="btnInstall" style="display:none">📲 Install ke HP/Komputer</button>
     </div>
   </div>
@@ -197,20 +201,22 @@
 
   <div id="listContainer"></div>
 
-  <div id="accessNotice" style="margin:10px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-size:12px;text-align:center">
-    🔒 <strong>Mode lihat saja.</strong> Dokumen dapat dibaca, dibuka, dan dicetak.
-  </div>
-
   <div class="admin-panel" id="adminPanel" style="display:none">
-    <h3>Impor dari PDF atau Word (menambahkan ke daftar)</h3>
-    <button class="btn btn-outline admin-only" id="btnChangePassword" type="button">🔑 Ganti Password Admin</button>
+    <h3>Impor dari Excel (menambahkan ke daftar)</h3>
     <p style="font-size:11.5px;color:var(--gray);margin-top:-4px">
-      Mendukung <code>.pdf</code> dan <code>.docx</code>. Agar hasil paling akurat, gunakan label
-      <code>PERATURAN</code>, <code>NOMOR</code>, <code>TANGGAL</code>, <code>TENTANG</code>,
-      <code>LINK</code>, dan <code>KETERANGAN</code> pada dokumen.
+      Kolom wajib: <code>NO, PERATURAN, NOMOR, TANGGAL, TENTANG, LINK, KETERANGAN</code> — sama seperti templat rekap regulasi kanda.
     </p>
-    <div class="dropzone" id="dropzone">⬆️ Seret file PDF atau Word (.docx) ke sini, atau klik untuk memilih</div>
-    <input type="file" id="fileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" />
+    <div class="dropzone" id="dropzone">⬆️ Seret file .xlsx ke sini, atau klik untuk memilih</div>
+    <input type="file" id="fileInput" accept=".xlsx" style="display:none" />
+
+    <h3 style="margin-top:18px">Impor dari PDF / Word (ambil data saja)</h3>
+    <p style="font-size:11.5px;color:var(--gray);margin-top:-4px">
+      Hanya mengambil <strong>judul, nomor, tentang, dan tanggal</strong> dari berkas — isi lengkap dokumen
+      <strong>tidak</strong> diambil/disimpan. Hasil ekstraksi akan mengisi form "tambah manual" di bawah agar
+      bisa diperiksa dulu sebelum disimpan. Format yang didukung: <code>.pdf</code> dan <code>.docx</code>.
+    </p>
+    <div class="dropzone" id="dropzoneDoc">⬆️ Seret file .pdf / .docx ke sini, atau klik untuk memilih</div>
+    <input type="file" id="fileInputDoc" accept=".pdf,.docx" style="display:none" />
 
     <h3 style="margin-top:18px">Atau tambah manual</h3>
     <div id="formTambah" style="display:none">
@@ -257,7 +263,7 @@
 const LS_KEY = 'warkop_regulasi_data';
 let currentSheet = 'REGULASI';
 
-// --- Data awal regulasi ---
+// --- Data awal (hasil impor dari Rekap_Regulasi_Pajak_Daerah.xlsx) ---
 const SEED_DATA = {
   REGULASI: [{"no": 1, "peraturan": "Peraturan Daerah (PERDA)", "nomor": "1 Tahun 2024", "tanggal": "4 Januari 2024", "tentang": "Pajak Daerah dan Retribusi Daerah", "link": "https://drive.google.com/file/d/1kmFa1nAwuK0B4gnTmM5cYuOWuglbgWzB/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 2, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 39 Tahun 2024", "tanggal": "10 Desember 2024", "tentang": "Pembebasan Bea Perolehan Hak Atas Tanah dan Bangunan Bagi Masyarakat Berpenghasilan Rendah", "link": "https://drive.google.com/file/d/19XngdKfrVp0APPnr-NgU5olEdURALKP6/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 3, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-1226/2024", "tanggal": "12 Desember 2024", "tentang": "Standar Operasional Prosedur (SOP) Pajak Daerah", "link": null, "keterangan": "DITERBITKAN"}, {"no": 4, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 48 Tahun 2024", "tanggal": "27 Desember 2024", "tentang": "Tata Cara Pemungutan dan Pemanfaatan Retribusi Persetujuan Bangunan Sedang", "link": "https://drive.google.com/file/d/1ZW5WbuQ4WKWbk_w4YTpo1Lkz286eRVvp/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 5, "peraturan": "Surat Edaran", "nomor": "Nomor 47 Tahun 2025", "tanggal": "3 Januari 2025", "tentang": "Penggunaan Plat Nomor Kendaraan Kabupaten Paser", "link": "https://drive.google.com/file/d/1YxWa8staeotsFIqRAPrgJH5u3NQB1rP2/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 6, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 2 Tahun 2025", "tanggal": "21 Januari 2025", "tentang": "Tata Cara Pemungutan Pajak Daerah", "link": "https://drive.google.com/file/d/1FtCi6LeT7SYzBoi0c1AprthQeftaIYnp/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 7, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-62/2025", "tanggal": null, "tentang": "Penetapan Besarnya Insentif dan Penerima Pembayaran", "link": null, "keterangan": "DITERBITKAN (TIDAK UNTUK UMUM)"}, {"no": 8, "peraturan": "Surat Edaran", "nomor": "Nolmor 150 Tahun 2025", "tanggal": "17 Februari 2025", "tentang": "Pembayaran Pajak Daerah/Retribusi Daerah Secara Online", "link": null, "keterangan": "DITERBITKAN"}, {"no": 9, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-186/2025", "tanggal": null, "tentang": "SOP Penerimaan Opsen Pajak Kendaraan Bermotor dan Opsen BBNKB dan Opsen MBLB", "link": null, "keterangan": "DITERBITKAN"}, {"no": 10, "peraturan": "Surat Edaran Bupati Paser", "nomor": "Nomor 304 Tahun 2025", "tanggal": "16 Juni 2025", "tentang": "Kepatuhan Aparatur Sipil Negara Di Lingkungan Peerintah Daerah Kabupaten Paser Terhadap Pembayaran Pajak Bumi dan Bangunan Perdesaan Perkotaan", "link": "https://drive.google.com/file/d/1HbXvHUk8sooAg_oyozFOBi9GEkK-Gv-D/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 11, "peraturan": "Peraturan Bupati (PERBUB) Paser", "nomor": "Nomor 39 Tahun 2023", "tanggal": "15 Maret 2023", "tentang": "Pembebasan Bea Perolehan Hak Atas Tanah dan Bangunan Bagi Masyarakat Penerima Sertifikat Dalam Kegiatan Pendaftaran Tanah Sistematis Lengkap", "link": "https://drive.google.com/file/d/1NU6dRA0x9-OS_APuW5mV1-UnASYQfjKB/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 12, "peraturan": "Peraturan Bupati (PERBUB) Paser", "nomor": "Nomor 3 Tahun 2025", "tanggal": "22 Januari 2025", "tentang": "Tata Cara Pemungutan Retribusi Penggunaan Tenaga Kerja Asing", "link": null, "keterangan": "DITERBITKAN"}, {"no": 13, "peraturan": "Surat Perubahan", "nomor": "900.1.13.1/499/Bapenda-P2SP2D/X/2025", "tanggal": "14 Oktober 2025", "tentang": "Tindak Lanjut Surat Edaran Nomor 47 Tahun 2025 Tentang Penggunaan Plat Nomor", "link": null, "keterangan": "ON PROGRES"}, {"no": 14, "peraturan": "Surat Edaran", "nomor": "Nomor 313 Tahun 2025", "tanggal": "23 Juni 2025", "tentang": "Kepatuhan Kepada Desa, Perangkat Desa, Anggota Badan Permusyawaratan Desa dan Lembaga Kemasyarakatan Desa Terhadap Pembayaran PBB-P2 ", "link": null, "keterangan": "ON PROGRES"}, {"no": 15, "peraturan": "Keputusan Bupati Paser", "nomor": "100.3.3.2/Kep-409/2025", "tanggal": "14 Mei 2025", "tentang": "Penetapan NJOP Sebagai Dasar Pengenaan PBB-P2", "link": null, "keterangan": "DICABUT"}, {"no": 16, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEР-426/2025", "tanggal": "20 Mei 2025", "tentang": "426. PEMBERIAN PENGURANGANATAS POKOK PIUTANG KETETAPAN DAN PENGHAPUSAN SANKSI ADMINISTRATIF PAJAK BUMI DAN BANGUNAN PERDESAAN DAN PERKOTAAN", "link": "https://drive.google.com/file/d/1l2npZ1uNRLkHo5AusUf5bwgQgt43ObLI/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 17, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEР-117/2026", "tanggal": "5 Februari 2026", "tentang": "PEMBERIAN PENGURANGAN ATAS РОКOК KETETAPAN DAN PENGHAPUSAN SANKSI\nADMINISTRATIF PAJAK BUMI DAN BANGUNAN PERDESAAN DAN PERKOTAAN (PBB-P2)", "link": "https://drive.google.com/file/d/1Yg_8UUXtzzcsmXmfZq0FIzONmzQgYlb1/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 18, "peraturan": "Keputusan Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEP-98/2026", "tanggal": "30 Januari 2026", "tentang": "PENETAPAN NILAI JUAL OBJEK PAJAK SEBAGAI DASAR PENGENAAN PAJAK BUMI DAN\nBANGUNAN SEKTOR PERDESAAN' DAN PERKOTAAN", "link": "https://drive.google.com/file/d/1aXqUwiFvsYRhiDxUgfGAsroxc0OFb1Lg/view?usp=drive_link", "keterangan": "DITERBITKAN"}],
   HIMBAUAN: []
@@ -550,9 +556,8 @@ function renderList() {
         <div class="meta">
           <span class="tanggal">🗓️ ${escapeHtml(d.tanggal || 'Tanggal tidak tercatat')}</span>
           ${linkHtml}
-          <a class="linkbtn" href="javascript:void(0)" onclick="printRegulasi('${currentSheet}', ${d.no})">🖨️ Cetak</a>
-          ${isAdminUnlocked() ? `<a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
-          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>` : ''}
+          <a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
+          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>
         </div>
         ${editLogHtml}
       </div>`;
@@ -579,18 +584,14 @@ function renderAll() {
 const ADMIN_PIN_KEY = 'warkop_admin_pin';
 const ADMIN_SESSION_KEY = 'warkop_admin_unlocked';
 const ADMIN_NAME_KEY = 'warkop_admin_name';
-const DEFAULT_ADMIN_PIN = 'bapenda2026';
-
-function isAdminUnlocked() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
-}
+const DEFAULT_ADMIN_PIN = 'whitefang123456789';
 
 function getAdminPin() {
   return localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
 }
 
 function ensureAdminAccess() {
-  if (isAdminUnlocked()) return true;
+  if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') return true;
   const pin = prompt('Masukkan PIN admin untuk menambah/mengedit/menghapus data:');
   if (pin === null) return false;
   if (pin !== getAdminPin()) {
@@ -602,59 +603,7 @@ function ensureAdminAccess() {
     const nama = prompt('Nama Anda (untuk catatan riwayat perubahan):') || 'Admin';
     sessionStorage.setItem(ADMIN_NAME_KEY, nama);
   }
-  updateAdminUI();
   return true;
-}
-
-function lockAdmin() {
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  sessionStorage.removeItem(ADMIN_NAME_KEY);
-  document.getElementById('adminPanel').style.display = 'none';
-  document.getElementById('formTambah').style.display = 'none';
-  updateAdminUI();
-  renderAll();
-  showToast('🔒 Mode lihat saja aktif. Data tidak dapat diubah.');
-}
-
-function changeAdminPin() {
-  if (!ensureAdminAccess()) return;
-  const lama = prompt('Masukkan password admin saat ini:');
-  if (lama === null) return;
-  if (lama !== getAdminPin()) {
-    showToast('❌ Password lama salah.');
-    return;
-  }
-  const baru = prompt('Masukkan password admin baru (minimal 6 karakter):');
-  if (baru === null) return;
-  if (baru.length < 6) {
-    showToast('⚠️ Password baru minimal 6 karakter.');
-    return;
-  }
-  const ulangi = prompt('Ulangi password admin baru:');
-  if (ulangi !== baru) {
-    showToast('❌ Konfirmasi password tidak cocok.');
-    return;
-  }
-  localStorage.setItem(ADMIN_PIN_KEY, baru);
-  showToast('✅ Password admin berhasil diganti.');
-}
-
-function updateAdminUI() {
-  const unlocked = isAdminUnlocked();
-  document.querySelectorAll('.admin-only').forEach((el) => {
-    el.style.display = unlocked ? (el.tagName === 'BUTTON' ? 'inline-flex' : '') : 'none';
-  });
-  const btn = document.getElementById('btnToggleAdmin');
-  if (btn) {
-    btn.textContent = unlocked ? '🔓' : '🔒';
-    btn.title = unlocked ? 'Kunci mode admin' : 'Akses admin';
-    btn.setAttribute('aria-label', unlocked ? 'Kunci mode admin' : 'Akses admin');
-    btn.classList.toggle('unlocked', unlocked);
-  }
-  const notice = document.getElementById('accessNotice');
-  if (notice) notice.innerHTML = unlocked
-    ? '🔓 <strong>Mode Admin aktif.</strong> Anda dapat menambah, mengimpor PDF/Word, mengedit, menghapus, dan mencadangkan data. Klik ikon gembok lagi setelah selesai.'
-    : '🔒 <strong>Mode lihat saja.</strong> Dokumen dapat dibaca, dibuka, dan dicetak. Tekan <strong>Buka Kunci Admin</strong> untuk mengelola data.';
 }
 
 function getAdminName() {
@@ -667,7 +616,7 @@ function stampEdit(item) {
 }
 
 // =============================================================================
-// BACKUP / PULIHKAN / RESET — cadangan data lengkap (JSON).
+// BACKUP / PULIHKAN / RESET — cadangan data lengkap (JSON), bukan cuma Excel.
 // =============================================================================
 function exportBackup() {
   const data = loadData();
@@ -715,95 +664,213 @@ function resetToSeedData() {
   showToast('🗑️ Data berhasil direset ke data awal.');
 }
 
-// --- Cetak satu regulasi ---
-window.printRegulasi = function (sheet, no) {
+// =============================================================================
+// IMPOR EXCEL — menambahkan baris baru ke sheet aktif
+// =============================================================================
+async function importExcel(file) {
+  const buffer = await file.arrayBuffer();
+  let wb;
+  try {
+    wb = XLSX.read(buffer, { type: 'array' });
+  } catch (err) {
+    showToast('❌ Berkas Excel rusak atau bukan format .xlsx yang valid.');
+    return;
+  }
+
+  // Coba cocokkan nama sheet dengan tab aktif, fallback ke sheet pertama
+  const sheetName = wb.SheetNames.find((n) => n.toUpperCase() === currentSheet) || wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  // Cari baris header (mengandung "NO" dan "PERATURAN")
+  let headerIdx = rows.findIndex((r) =>
+    r.some((c) => String(c).trim().toUpperCase() === 'NO') &&
+    r.some((c) => String(c).trim().toUpperCase() === 'PERATURAN')
+  );
+  if (headerIdx === -1) {
+    showToast('❌ Header kolom (NO, PERATURAN, NOMOR, TANGGAL, TENTANG, LINK, KETERANGAN) tidak ditemukan.');
+    return;
+  }
+
+  const header = rows[headerIdx].map((h) => String(h).trim().toUpperCase());
+  const idx = {
+    no: header.indexOf('NO'),
+    peraturan: header.indexOf('PERATURAN'),
+    nomor: header.indexOf('NOMOR'),
+    tanggal: header.indexOf('TANGGAL'),
+    tentang: header.indexOf('TENTANG'),
+    link: header.indexOf('LINK'),
+    keterangan: header.indexOf('KETERANGAN'),
+  };
+
   const data = loadData();
-  const item = (data[sheet] || []).find((d) => d.no === no);
-  if (!item) { showToast('❌ Regulasi tidak ditemukan.'); return; }
-  const win = window.open('', '_blank');
-  win.document.write(`
-    <html><head><title>${escapeHtml(item.nomor || 'Regulasi')}</title>
-    <style>
-      body{font-family:'Segoe UI',system-ui,sans-serif;padding:30px;color:#1e293b}
-      h1{font-size:16px;color:#1B2A4A;margin-bottom:2px}
-      .k{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700}
-      .row{margin:10px 0;font-size:13px}
-      .label{font-weight:700;color:#1B2A4A}
-    </style></head><body>
-    <div class="k">BAPENDA Kabupaten Paser — ${escapeHtml(sheet)}</div>
-    <h1>${escapeHtml(item.peraturan || '-')}</h1>
-    <div class="row"><span class="label">Nomor:</span> ${escapeHtml(item.nomor || '-')}</div>
-    <div class="row"><span class="label">Tanggal:</span> ${escapeHtml(item.tanggal || '-')}</div>
-    <div class="row"><span class="label">Tentang:</span> ${escapeHtml(item.tentang || '-')}</div>
-    <div class="row"><span class="label">Status:</span> ${escapeHtml(item.keterangan || '-')}</div>
-    ${item.link ? `<div class="row"><span class="label">Dokumen:</span> ${escapeHtml(item.link)}</div>` : ''}
-    </body></html>
-  `);
-  win.document.close();
-  win.focus();
-  win.print();
-};
+  const existing = data[currentSheet] || [];
+  let maxNo = existing.reduce((m, d) => Math.max(m, d.no || 0), 0);
+  let ditambahkan = 0;
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const peraturan = idx.peraturan >= 0 ? String(r[idx.peraturan] || '').trim() : '';
+    const tentang = idx.tentang >= 0 ? String(r[idx.tentang] || '').trim() : '';
+    if (!peraturan && !tentang) continue; // lewati baris kosong/pemisah
+
+    maxNo += 1;
+    existing.push({
+      no: maxNo,
+      peraturan: peraturan || '-',
+      nomor: idx.nomor >= 0 ? String(r[idx.nomor] || '').trim() : '',
+      tanggal: idx.tanggal >= 0 ? String(r[idx.tanggal] || '').trim() : '',
+      tentang: tentang || '-',
+      link: idx.link >= 0 ? String(r[idx.link] || '').trim() || null : null,
+      keterangan: idx.keterangan >= 0 ? String(r[idx.keterangan] || '').trim() : '',
+    });
+    ditambahkan++;
+  }
+
+  if (ditambahkan === 0) {
+    showToast('⚠️ Tidak ada baris data baru yang terbaca dari berkas ini.');
+    return;
+  }
+
+  data[currentSheet] = existing;
+  saveData(data);
+  renderAll();
+  showToast(`✅ ${ditambahkan} regulasi berhasil ditambahkan dari Excel.`);
+}
 
 // =============================================================================
-// IMPOR PDF / WORD — membaca teks dokumen dan menambahkan regulasi ke sheet aktif
+// IMPOR PDF / WORD — HANYA metadata (judul, nomor, tentang, tanggal)
+// Isi lengkap dokumen dibaca sementara di memori untuk dicari polanya lalu
+// LANGSUNG DIBUANG — tidak pernah disimpan ke data/localStorage/Firebase.
+// Hasilnya hanya mengisi form "tambah manual" supaya admin memeriksanya dulu.
 // =============================================================================
-function fieldFromText(text, label) {
-  const labels = 'PERATURAN|NOMOR|TANGGAL|TENTANG|LINK|KETERANGAN|STATUS';
-  const re = new RegExp('(?:^|\n)\s*' + label + '\s*[:\-]?\s*(.*?)(?=\n\s*(?:' + labels + ')\s*[:\-]|$)', 'i');
-  const match = text.match(re);
-  return match ? match[1].replace(/\s+/g, ' ').trim() : '';
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
-function parseRegulationText(text) {
-  const clean = String(text || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ');
-  const lines = clean.split('\n').map((line) => line.trim()).filter((line) => line && !/^[-–—]?\s*halaman\s+\d+/i.test(line));
-  let blocks = clean.split(/\n\s*\n+/).map((b) => b.trim()).filter(Boolean);
-  if (blocks.length < 2) {
-    const starts = lines.reduce((acc, line, i) => /^\d+[.)\-]\s+/.test(line) ? acc.concat(i) : acc, []);
-    if (starts.length > 1) blocks = starts.map((start, i) => lines.slice(start, starts[i + 1] || lines.length).join('\n'));
+
+const BULAN_ID = 'Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember';
+const JENIS_PERATURAN = [
+  { cocok: /PERATURAN\s+DAERAH/i, label: 'Peraturan Daerah (PERDA)' },
+  { cocok: /PERATURAN\s+BUPATI/i, label: 'Peraturan Bupati (PERBUB)' },
+  { cocok: /SURAT\s+KEPUTUSAN/i, label: 'Surat Keputusan (SK) Bupati Paser' },
+  { cocok: /KEPUTUSAN\s+BUPATI/i, label: 'Keputusan Bupati Paser' },
+  { cocok: /SURAT\s+EDARAN\s+BUPATI/i, label: 'Surat Edaran Bupati Paser' },
+  { cocok: /SURAT\s+EDARAN/i, label: 'Surat Edaran' },
+  { cocok: /SURAT\s+PERUBAHAN/i, label: 'Surat Perubahan' },
+];
+
+// --- Ambil hanya bagian atas dokumen (judul/kop) dari teks mentah, lalu
+// bagian mentah itu langsung dilepas dari memori setelah fungsi ini selesai. ---
+function ekstrakMetadataDariTeks(teksMentah) {
+  const teks = String(teksMentah || '').replace(/\r/g, '').trim();
+  const cuplikan = teks.slice(0, 4000); // cukup untuk kop surat/judul, bukan seluruh isi
+
+  let jenis = '';
+  for (const j of JENIS_PERATURAN) {
+    if (j.cocok.test(cuplikan)) { jenis = j.label; break; }
   }
-  const records = [];
-  blocks.forEach((block) => {
-    const raw = block.replace(/\s+/g, ' ').trim();
-    if (raw.length < 12 || /^(no|nomor|peraturan|tanggal|tentang|keterangan|status)$/i.test(raw)) return;
-    const peraturanMatch = raw.match(/(Peraturan Daerah|Peraturan Bupati|Surat Keputusan(?: Bupati Paser)?|Keputusan Bupati(?: Paser)?|Surat Edaran(?: Bupati Paser)?|Surat Perubahan)/i);
-    const nomor = fieldFromText(block, 'NOMOR') || ((raw.match(/^\\d+[.)\\-]?\\s+(.{0,100}?)(?=\\s+(?:Peraturan|Nomor|Tanggal|Tentang)\\b)/i) || [])[1] || '');
-    const tanggal = fieldFromText(block, 'TANGGAL') || ((raw.match(/(?:tanggal|tgl\\.)\\s*[:\\-]?\\s*([^.;,]+(?:\\s+\\d{4})?)/i) || [])[1] || '');
-    const tentang = fieldFromText(block, 'TENTANG') || ((raw.match(/(?:tentang|perihal)\\s*[:\\-]?\\s*(.+?)(?=\\s+(?:link|keterangan|status)\\s*[:\\-]|$)/i) || [])[1] || '');
-    const link = fieldFromText(block, 'LINK') || ((raw.match(/https?:\/\/\S+/i) || [])[0] || '');
-    const status = fieldFromText(block, 'KETERANGAN') || fieldFromText(block, 'STATUS') || ((raw.match(/\b(DITERBITKAN|ON PROGRES|DICABUT)\b/i) || [])[1] || '');
-    const fallbackTitle = raw.replace(/^\d+[.)\-]?\s*/, '').replace(/(PERATURAN|NOMOR|TANGGAL|TENTANG|LINK|KETERANGAN|STATUS)\s*[:\-]?/gi, '').trim();
-    if (!peraturanMatch && !nomor && !tentang && !fallbackTitle) return;
-    records.push({ peraturan: peraturanMatch ? peraturanMatch[1] : currentSheet === 'HIMBAUAN' ? 'Surat Edaran' : 'Peraturan Daerah', nomor: nomor.trim(), tanggal: tanggal.trim(), tentang: (tentang || fallbackTitle).trim(), link: link.trim() || null, keterangan: status.trim() || 'DITERBITKAN' });
-  });
-  return records.filter((item) => item.tentang || item.nomor);
+
+  let nomor = '';
+  const mNomor =
+    cuplikan.match(/NOMOR\s*[:\-]?\s*([0-9A-Z./]+\s*TAHUN\s*[0-9]{4})/i) ||
+    cuplikan.match(/NOMOR\s*[:\-]?\s*([0-9A-Z./]{1,40})/i);
+  if (mNomor) nomor = ('Nomor ' + mNomor[1].trim()).replace(/\s+/g, ' ');
+
+  let tanggal = '';
+  const mTanggal = cuplikan.match(new RegExp('(\\d{1,2}\\s+(?:' + BULAN_ID + ')\\s+\\d{4})', 'i'));
+  if (mTanggal) tanggal = mTanggal[1].replace(/\s+/g, ' ');
+
+  let tentang = '';
+  const mTentang = cuplikan.match(/TENTANG\s*[:\-]?\s*([^\n]+(?:\n(?!\s*(?:BAB|MENIMBANG|MENGINGAT)\b)[^\n]+){0,2})/i);
+  if (mTentang) tentang = mTentang[1].replace(/\s+/g, ' ').trim().replace(/[.,;]+$/, '');
+
+  return { jenis, nomor, tentang, tanggal };
 }
-async function readImportText(file) {
+
+async function ekstrakTeksPdf(file) {
+  if (!window.pdfjsLib) throw new Error('Pustaka pembaca PDF belum siap, coba lagi.');
   const buffer = await file.arrayBuffer();
-  if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-    const pages = [];
-    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent();
-      pages.push(content.items.map((item) => item.str).join(' '));
-    }
-    return pages.join('\n\n');
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let teks = '';
+  const jumlahHalaman = Math.min(pdf.numPages, 2); // cukup halaman kop/judul saja
+  for (let i = 1; i <= jumlahHalaman; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    teks += content.items.map((it) => it.str).join(' ') + '\n';
   }
-  if (file.name.toLowerCase().endsWith('.docx')) return (await mammoth.extractRawText({ arrayBuffer: buffer })).value;
-  throw new Error('Format tidak didukung. Gunakan PDF atau Word .docx.');
+  return teks;
 }
-async function importDocument(file) {
+
+async function ekstrakTeksDocx(file) {
+  if (!window.mammoth) throw new Error('Pustaka pembaca Word belum siap, coba lagi.');
+  const buffer = await file.arrayBuffer();
+  const hasil = await mammoth.extractRawText({ arrayBuffer: buffer });
+  return hasil.value || '';
+}
+
+async function importDokumen(file) {
   if (!ensureAdminAccess()) return;
+  const nama = file.name.toLowerCase();
+  showToast('⏳ Membaca judul/nomor/tentang/tanggal dari berkas...');
+
   try {
-    const records = parseRegulationText(await readImportText(file));
-    if (!records.length) { showToast('⚠️ Tidak ada data regulasi terbaca. Pastikan PDF bukan hasil scan gambar dan gunakan label PERATURAN, NOMOR, TANGGAL, TENTANG.'); return; }
-    const data = loadData(); const existing = data[currentSheet] || [];
-    let maxNo = existing.reduce((m, d) => Math.max(m, d.no || 0), 0);
-    records.forEach((record) => existing.push({ no: ++maxNo, ...record }));
-    data[currentSheet] = existing; saveData(data); renderAll();
-    showToast(`✅ ${records.length} regulasi berhasil diimpor dari ${file.name}.`);
-  } catch (err) { console.error(err); showToast(`❌ Gagal membaca dokumen: ${err.message || 'format tidak valid'}`); }
+    let teksMentah = '';
+    if (nama.endsWith('.pdf')) {
+      teksMentah = await ekstrakTeksPdf(file);
+    } else if (nama.endsWith('.docx')) {
+      teksMentah = await ekstrakTeksDocx(file);
+    } else if (nama.endsWith('.doc')) {
+      showToast('❌ Format .doc lama tidak didukung, simpan ulang sebagai .docx.');
+      return;
+    } else {
+      showToast('❌ Hanya menerima berkas .pdf atau .docx.');
+      return;
+    }
+
+    const meta = ekstrakMetadataDariTeks(teksMentah);
+    teksMentah = null; // buang isi dokumen dari memori, tidak dipakai lagi
+
+    if (!meta.nomor && !meta.tentang && !meta.tanggal) {
+      showToast('⚠️ Tidak ada judul/nomor/tentang/tanggal yang terbaca dari berkas ini.');
+      return;
+    }
+
+    editingNo = null;
+    document.getElementById('btnSimpanManual').textContent = '💾 Simpan Regulasi';
+    if (meta.jenis) document.getElementById('fPeraturan').value = meta.jenis;
+    document.getElementById('fNomor').value = meta.nomor;
+    document.getElementById('fTanggal').value = meta.tanggal;
+    document.getElementById('fTentang').value = meta.tentang;
+    document.getElementById('fLink').value = '';
+    document.getElementById('adminPanel').style.display = 'block';
+    document.getElementById('formTambah').style.display = 'block';
+    document.getElementById('formTambah').scrollIntoView({ behavior: 'smooth' });
+    showToast('✅ Judul/nomor/tentang/tanggal terisi — periksa dulu lalu klik Simpan.');
+  } catch (err) {
+    showToast('❌ Gagal membaca berkas ini.');
+  }
+}
+
+// =============================================================================
+// EKSPOR EXCEL — sesuai format asli (NO, PERATURAN, NOMOR, TANGGAL, TENTANG, LINK, KETERANGAN)
+// =============================================================================
+function exportXlsx() {
+  const data = loadData()[currentSheet] || [];
+  const wb = XLSX.utils.book_new();
+  const rows = [
+    [`REKAP ${currentSheet} PAJAK DAERAH YANG DITERBITKAN`],
+    [],
+    ['NO', 'PERATURAN', 'NOMOR', 'TANGGAL', 'TENTANG', 'LINK', 'KETERANGAN'],
+    ...data
+      .slice()
+      .sort((a, b) => (a.no || 0) - (b.no || 0))
+      .map((d) => [d.no, d.peraturan, d.nomor, d.tanggal, d.tentang, d.link || '', d.keterangan || '']),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 5 }, { wch: 28 }, { wch: 26 }, { wch: 16 }, { wch: 50 }, { wch: 40 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, ws, currentSheet);
+  XLSX.writeFile(wb, `Rekap_${currentSheet}_Pajak_Daerah_Paser_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // =============================================================================
@@ -992,18 +1059,13 @@ document.querySelectorAll('.tab').forEach((tab) => {
   });
 });
 
+document.getElementById('btnExportXlsx').addEventListener('click', exportXlsx);
 document.getElementById('btnExportPdf').addEventListener('click', exportPdf);
 document.getElementById('btnToggleAdmin').addEventListener('click', () => {
-  if (isAdminUnlocked()) {
-    lockAdmin();
-    return;
-  }
   if (!ensureAdminAccess()) return;
-  updateAdminUI();
-  renderAll();
-  document.getElementById('adminPanel').style.display = 'block';
+  const panel = document.getElementById('adminPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
-document.getElementById('btnChangePassword').addEventListener('click', changeAdminPin);
 document.getElementById('btnTambah').addEventListener('click', () => {
   if (!ensureAdminAccess()) return;
   editingNo = null;
@@ -1031,11 +1093,26 @@ dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active')
 dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropzone.classList.remove('active');
-  if (e.dataTransfer.files[0]) importDocument(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files[0]) importExcel(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener('change', (e) => {
-  if (e.target.files[0]) importDocument(e.target.files[0]);
+  if (e.target.files[0]) importExcel(e.target.files[0]);
   fileInput.value = '';
+});
+
+const dropzoneDoc = document.getElementById('dropzoneDoc');
+const fileInputDoc = document.getElementById('fileInputDoc');
+dropzoneDoc.addEventListener('click', () => fileInputDoc.click());
+dropzoneDoc.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneDoc.classList.add('active'); });
+dropzoneDoc.addEventListener('dragleave', () => dropzoneDoc.classList.remove('active'));
+dropzoneDoc.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzoneDoc.classList.remove('active');
+  if (e.dataTransfer.files[0]) importDokumen(e.dataTransfer.files[0]);
+});
+fileInputDoc.addEventListener('change', (e) => {
+  if (e.target.files[0]) importDokumen(e.target.files[0]);
+  fileInputDoc.value = '';
 });
 
 let editingNo = null;
@@ -1137,7 +1214,6 @@ window.deleteRegulasi = function (sheet, no) {
 
 // --- Init ---
 renderAll();
-updateAdminUI();
 initCloudSync();
 
 // --- Daftarkan Service Worker (supaya bisa di-install & dibuka offline) ---
