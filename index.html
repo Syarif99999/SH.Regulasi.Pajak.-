@@ -139,7 +139,6 @@
   <p style="margin-top:4px;font-size:11px;opacity:0.75">
     Jalan Basuki Rahmat No. 01 Tanah Grogot, Kab. Paser, Kode Pos 76211 &middot;
     081345393991 &middot; bapenda.paserkab.go.id &middot; bapendakab.paser@gmail.com
-    &middot; <a id="btnAdminLock" href="javascript:void(0)" style="color:inherit;opacity:0.45;text-decoration:none;font-size:10px;">🔒</a>
   </p>
 </header>
 
@@ -155,6 +154,14 @@
         <option value="ON PROGRES">On Progres</option>
         <option value="DICABUT">Dicabut</option>
       </select>
+      <select id="filterTahun"><option value="">Semua Tahun</option></select>
+      <select id="sortBy">
+        <option value="baru">Urutkan: Terbaru Ditambahkan</option>
+        <option value="lama">Urutkan: Terlama Ditambahkan</option>
+        <option value="tanggal_baru">Urutkan: Tanggal Terbaru</option>
+        <option value="tanggal_lama">Urutkan: Tanggal Terlama</option>
+        <option value="az">Urutkan: Tentang (A-Z)</option>
+      </select>
     </div>
 
     <div class="tabs">
@@ -163,10 +170,14 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-navy" id="btnTambah" style="display:none">➕ Tambah Regulasi</button>
+      <button class="btn btn-navy" id="btnTambah">➕ Tambah Regulasi</button>
       <button class="btn btn-outline" id="btnExportXlsx">📊 Unduh Excel</button>
       <button class="btn btn-outline" id="btnExportPdf">📄 Unduh PDF</button>
-      <button class="btn btn-gold" id="btnToggleAdmin" style="display:none">⚙️ Impor / Kelola Data</button>
+      <button class="btn btn-gold" id="btnToggleAdmin">⚙️ Impor / Kelola Data</button>
+      <button class="btn btn-outline" id="btnBackup">💾 Backup Data</button>
+      <button class="btn btn-outline" id="btnRestore">♻️ Pulihkan Data</button>
+      <input type="file" id="restoreInput" accept=".json" style="display:none" />
+      <button class="btn btn-outline" id="btnResetData" style="color:var(--red);border-color:var(--red)">🗑️ Reset ke Data Awal</button>
       <button class="btn btn-outline" id="btnInstall" style="display:none">📲 Install ke HP/Komputer</button>
     </div>
   </div>
@@ -177,6 +188,8 @@
   </p>
 
   <div class="stats" id="stats"></div>
+
+  <div id="resultCount" style="font-size:11.5px;color:var(--gray);margin:0 2px 8px"></div>
 
   <div id="listContainer"></div>
 
@@ -425,6 +438,23 @@ function renderKategoriFilter() {
   el.value = current;
 }
 
+// --- Ambil 4 digit tahun dari teks tanggal/nomor (mis. "21 Agustus 2026" -> 2026) ---
+function extractYear(item) {
+  const blob = `${item.tanggal || ''} ${item.nomor || ''}`;
+  const m = blob.match(/\b(19|20)\d{2}\b/g);
+  return m ? m[m.length - 1] : null;
+}
+
+function renderTahunFilter() {
+  const data = loadData()[currentSheet] || [];
+  const tahunUnik = [...new Set(data.map(extractYear).filter(Boolean))].sort((a, b) => b - a);
+  const el = document.getElementById('filterTahun');
+  const current = el.value;
+  el.innerHTML = '<option value="">Semua Tahun</option>' +
+    tahunUnik.map((t) => `<option value="${t}">${t}</option>`).join('');
+  el.value = current;
+}
+
 function renderStats() {
   const data = loadData()[currentSheet] || [];
   const total = data.length;
@@ -440,64 +470,19 @@ function renderStats() {
   `;
 }
 
-// =============================================================================
-// MODE ADMIN — supaya link yang dibagikan ke orang lain hanya bisa LIHAT.
-// Hanya perangkat yang tahu PIN yang bisa melihat tombol Edit/Hapus/Tambah/Impor.
-// PIN sudah diatur oleh kanda. Untuk mengganti PIN nanti:
-// jalankan di console browser: crypto.subtle.digest('SHA-256', new TextEncoder().encode('PIN_BARU'))
-// lalu ganti nilai PIN_HASH_ASLI di bawah dengan hasilnya (format hex).
-// =============================================================================
-const PIN_HASH_ASLI = 'b1ecd5d49460db9d58b81e93f2d8b3f4557cad27f4ccc71150428fe151cb3058'; // PIN admin milik kanda
-
-function isAdmin() {
-  return localStorage.getItem('regulasiAdminMode') === 'true';
-}
-
-async function sha256Hex(str) {
-  const enc = new TextEncoder().encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function unlockAdmin() {
-  const pin = prompt('Masukkan PIN Admin untuk mengaktifkan mode edit di perangkat ini:');
-  if (pin === null) return;
-  const hash = await sha256Hex(pin.trim());
-  if (hash === PIN_HASH_ASLI) {
-    localStorage.setItem('regulasiAdminMode', 'true');
-    showToast('🔓 Mode Admin aktif di perangkat ini.');
-    applyAdminVisibility();
-    renderAll();
-  } else {
-    showToast('❌ PIN salah.');
-  }
-}
-
-function lockAdmin() {
-  localStorage.removeItem('regulasiAdminMode');
-  showToast('🔒 Mode Admin dimatikan di perangkat ini.');
-  document.getElementById('adminPanel').style.display = 'none';
-  applyAdminVisibility();
-  renderAll();
-}
-
-function applyAdminVisibility() {
-  const admin = isAdmin();
-  document.getElementById('btnTambah').style.display = admin ? '' : 'none';
-  document.getElementById('btnToggleAdmin').style.display = admin ? '' : 'none';
-  const lockLink = document.getElementById('btnAdminLock');
-  if (lockLink) lockLink.textContent = admin ? '🔓 Mode Admin aktif (klik untuk keluar)' : '🔒';
-}
-
 function renderList() {
   const data = loadData()[currentSheet] || [];
+  const totalKeseluruhan = data.length;
   const kw = document.getElementById('search').value.toLowerCase().trim();
   const fKategori = document.getElementById('filterKategori').value;
   const fStatus = document.getElementById('filterStatus').value;
+  const fTahun = document.getElementById('filterTahun').value;
+  const sortBy = document.getElementById('sortBy').value;
 
   let filtered = data.filter((d) => {
     if (fKategori && d.peraturan !== fKategori) return false;
     if (fStatus && !(d.keterangan || '').toUpperCase().includes(fStatus)) return false;
+    if (fTahun && extractYear(d) !== fTahun) return false;
     if (kw) {
       const blob = `${d.peraturan} ${d.nomor} ${d.tentang} ${d.tanggal}`.toLowerCase();
       if (!blob.includes(kw)) return false;
@@ -505,7 +490,27 @@ function renderList() {
     return true;
   });
 
-  filtered = filtered.slice().sort((a, b) => (b.no || 0) - (a.no || 0));
+  filtered = filtered.slice();
+  if (sortBy === 'lama') {
+    filtered.sort((a, b) => (a.no || 0) - (b.no || 0));
+  } else if (sortBy === 'az') {
+    filtered.sort((a, b) => (a.tentang || '').localeCompare(b.tentang || ''));
+  } else if (sortBy === 'tanggal_baru' || sortBy === 'tanggal_lama') {
+    const parseTgl = (d) => {
+      const y = extractYear(d);
+      return y ? Number(y) : 0;
+    };
+    filtered.sort((a, b) => sortBy === 'tanggal_baru' ? parseTgl(b) - parseTgl(a) : parseTgl(a) - parseTgl(b));
+  } else {
+    filtered.sort((a, b) => (b.no || 0) - (a.no || 0));
+  }
+
+  const resultCountEl = document.getElementById('resultCount');
+  if (resultCountEl) {
+    resultCountEl.textContent = filtered.length === totalKeseluruhan
+      ? `Menampilkan semua ${totalKeseluruhan} dokumen`
+      : `Menampilkan ${filtered.length} dari ${totalKeseluruhan} dokumen`;
+  }
 
   const container = document.getElementById('listContainer');
   if (filtered.length === 0) {
@@ -518,6 +523,9 @@ function renderList() {
       const linkHtml = d.link
         ? `<a class="linkbtn" href="${escapeHtml(d.link)}" target="_blank" rel="noopener">📎 Lihat Dokumen</a>`
         : `<span class="no-link">Dokumen belum tertaut</span>`;
+      const editLogHtml = d.diubahOleh
+        ? `<div style="font-size:10.5px;color:#94a3b8;margin-top:4px">✏️ Terakhir diubah oleh ${escapeHtml(d.diubahOleh)} pada ${escapeHtml(d.diubahPada || '')}</div>`
+        : '';
       return `
       <div class="item ${itemClass(d.keterangan)}">
         <div class="item-top">
@@ -531,9 +539,11 @@ function renderList() {
         <div class="meta">
           <span class="tanggal">🗓️ ${escapeHtml(d.tanggal || 'Tanggal tidak tercatat')}</span>
           ${linkHtml}
-          ${isAdmin() ? `<a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
-          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>` : ''}
+          <a class="linkbtn" href="javascript:void(0)" onclick="printRegulasi('${currentSheet}', ${d.no})">🖨️ Cetak</a>
+          <a class="linkbtn" href="javascript:void(0)" onclick="editRegulasi('${currentSheet}', ${d.no})">✏️ Edit</a>
+          <a class="linkbtn danger" href="javascript:void(0)" onclick="deleteRegulasi('${currentSheet}', ${d.no})">🗑️ Hapus</a>
         </div>
+        ${editLogHtml}
       </div>`;
     })
     .join('');
@@ -545,15 +555,132 @@ function escapeHtml(s) {
 
 function renderAll() {
   renderKategoriFilter();
+  renderTahunFilter();
   renderStats();
   renderList();
 }
 
 // =============================================================================
+// PROTEKSI ADMIN (PIN) — mencegah orang lain sembarang Tambah/Edit/Hapus/Impor
+// data yang tersinkron ke semua perangkat. Sederhana (client-side), cukup untuk
+// menahan penyalahgunaan tidak sengaja oleh pihak luar.
+// =============================================================================
+const ADMIN_PIN_KEY = 'warkop_admin_pin';
+const ADMIN_SESSION_KEY = 'warkop_admin_unlocked';
+const ADMIN_NAME_KEY = 'warkop_admin_name';
+const DEFAULT_ADMIN_PIN = 'bapenda2026';
+
+function getAdminPin() {
+  return localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
+}
+
+function ensureAdminAccess() {
+  if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') return true;
+  const pin = prompt('Masukkan PIN admin untuk menambah/mengedit/menghapus data:');
+  if (pin === null) return false;
+  if (pin !== getAdminPin()) {
+    showToast('❌ PIN salah.');
+    return false;
+  }
+  sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+  if (!sessionStorage.getItem(ADMIN_NAME_KEY)) {
+    const nama = prompt('Nama Anda (untuk catatan riwayat perubahan):') || 'Admin';
+    sessionStorage.setItem(ADMIN_NAME_KEY, nama);
+  }
+  return true;
+}
+
+function getAdminName() {
+  return sessionStorage.getItem(ADMIN_NAME_KEY) || 'Admin';
+}
+
+function stampEdit(item) {
+  item.diubahOleh = getAdminName();
+  item.diubahPada = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+// =============================================================================
+// BACKUP / PULIHKAN / RESET — cadangan data lengkap (JSON), bukan cuma Excel.
+// =============================================================================
+function exportBackup() {
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Backup_Regulasi_Pajak_Daerah_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('💾 Backup data berhasil diunduh.');
+}
+
+function importBackup(file) {
+  if (!ensureAdminAccess()) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.REGULASI && !parsed.HIMBAUAN) throw new Error('Format tidak dikenali');
+      const konfirmasi = confirm('Memulihkan data ini akan MENIMPA seluruh data yang ada saat ini. Lanjutkan?');
+      if (!konfirmasi) return;
+      if (!parsed.REGULASI) parsed.REGULASI = [];
+      if (!parsed.HIMBAUAN) parsed.HIMBAUAN = [];
+      saveData(parsed);
+      renderAll();
+      showToast('♻️ Data berhasil dipulihkan dari backup.');
+    } catch (err) {
+      showToast('❌ Gagal membaca file backup (format tidak valid).');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetToSeedData() {
+  if (!ensureAdminAccess()) return;
+  const konfirmasi = confirm('Reset akan MENGHAPUS semua data saat ini dan mengembalikan ke data awal (seed). Tindakan ini tidak bisa dibatalkan. Lanjutkan?');
+  if (!konfirmasi) return;
+  const fresh = JSON.parse(JSON.stringify(SEED_DATA));
+  localStorage.setItem(MERGED_KEYS_LS, JSON.stringify(fresh.REGULASI.map(regKey)));
+  saveData(fresh);
+  renderAll();
+  showToast('🗑️ Data berhasil direset ke data awal.');
+}
+
+// --- Cetak satu regulasi ---
+window.printRegulasi = function (sheet, no) {
+  const data = loadData();
+  const item = (data[sheet] || []).find((d) => d.no === no);
+  if (!item) { showToast('❌ Regulasi tidak ditemukan.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>${escapeHtml(item.nomor || 'Regulasi')}</title>
+    <style>
+      body{font-family:'Segoe UI',system-ui,sans-serif;padding:30px;color:#1e293b}
+      h1{font-size:16px;color:#1B2A4A;margin-bottom:2px}
+      .k{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700}
+      .row{margin:10px 0;font-size:13px}
+      .label{font-weight:700;color:#1B2A4A}
+    </style></head><body>
+    <div class="k">BAPENDA Kabupaten Paser — ${escapeHtml(sheet)}</div>
+    <h1>${escapeHtml(item.peraturan || '-')}</h1>
+    <div class="row"><span class="label">Nomor:</span> ${escapeHtml(item.nomor || '-')}</div>
+    <div class="row"><span class="label">Tanggal:</span> ${escapeHtml(item.tanggal || '-')}</div>
+    <div class="row"><span class="label">Tentang:</span> ${escapeHtml(item.tentang || '-')}</div>
+    <div class="row"><span class="label">Status:</span> ${escapeHtml(item.keterangan || '-')}</div>
+    ${item.link ? `<div class="row"><span class="label">Dokumen:</span> ${escapeHtml(item.link)}</div>` : ''}
+    </body></html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+};
+
+// =============================================================================
 // IMPOR EXCEL — menambahkan baris baru ke sheet aktif
 // =============================================================================
 async function importExcel(file) {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu untuk mengimpor data.'); return; }
   const buffer = await file.arrayBuffer();
   let wb;
   try {
@@ -816,6 +943,8 @@ function exportPdf() {
 document.getElementById('search').addEventListener('input', renderList);
 document.getElementById('filterKategori').addEventListener('change', renderList);
 document.getElementById('filterStatus').addEventListener('change', renderList);
+document.getElementById('filterTahun').addEventListener('change', renderList);
+document.getElementById('sortBy').addEventListener('change', renderList);
 
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -824,6 +953,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
     currentSheet = tab.dataset.sheet;
     document.getElementById('search').value = '';
     document.getElementById('filterStatus').value = '';
+    document.getElementById('filterTahun').value = '';
     renderAll();
   });
 });
@@ -831,12 +961,12 @@ document.querySelectorAll('.tab').forEach((tab) => {
 document.getElementById('btnExportXlsx').addEventListener('click', exportXlsx);
 document.getElementById('btnExportPdf').addEventListener('click', exportPdf);
 document.getElementById('btnToggleAdmin').addEventListener('click', () => {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
+  if (!ensureAdminAccess()) return;
   const panel = document.getElementById('adminPanel');
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 document.getElementById('btnTambah').addEventListener('click', () => {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
+  if (!ensureAdminAccess()) return;
   editingNo = null;
   document.getElementById('btnSimpanManual').textContent = '💾 Simpan Regulasi';
   ['fNomor', 'fTanggal', 'fTentang', 'fLink'].forEach((id) => (document.getElementById(id).value = ''));
@@ -844,6 +974,15 @@ document.getElementById('btnTambah').addEventListener('click', () => {
   document.getElementById('formTambah').style.display = 'block';
   document.getElementById('formTambah').scrollIntoView({ behavior: 'smooth' });
 });
+
+document.getElementById('btnBackup').addEventListener('click', exportBackup);
+const restoreInput = document.getElementById('restoreInput');
+document.getElementById('btnRestore').addEventListener('click', () => restoreInput.click());
+restoreInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) importBackup(e.target.files[0]);
+  restoreInput.value = '';
+});
+document.getElementById('btnResetData').addEventListener('click', resetToSeedData);
 
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
@@ -863,7 +1002,7 @@ fileInput.addEventListener('change', (e) => {
 let editingNo = null;
 
 document.getElementById('btnSimpanManual').addEventListener('click', () => {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu untuk menyimpan data.'); return; }
+  if (!ensureAdminAccess()) return;
   const peraturan = document.getElementById('fPeraturan').value;
   const nomor = document.getElementById('fNomor').value.trim();
   const tanggal = document.getElementById('fTanggal').value.trim();
@@ -889,12 +1028,15 @@ document.getElementById('btnSimpanManual').addEventListener('click', () => {
       item.keterangan = status;
       item.tentang = tentang;
       item.link = link || null;
+      stampEdit(item);
     }
     editingNo = null;
     document.getElementById('btnSimpanManual').textContent = '💾 Simpan Regulasi';
   } else {
     const maxNo = existing.reduce((m, d) => Math.max(m, d.no || 0), 0);
-    existing.push({ no: maxNo + 1, peraturan, nomor, tanggal, tentang, link: link || null, keterangan: status });
+    const newItem = { no: maxNo + 1, peraturan, nomor, tanggal, tentang, link: link || null, keterangan: status };
+    stampEdit(newItem);
+    existing.push(newItem);
   }
 
   data[currentSheet] = existing;
@@ -908,8 +1050,8 @@ document.getElementById('btnSimpanManual').addEventListener('click', () => {
 
 // --- Edit regulasi yang sudah ada (perbaiki salah ketik) ---
 window.editRegulasi = function (sheet, no) {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   if (sheet !== currentSheet) return;
+  if (!ensureAdminAccess()) return;
   const data = loadData();
   const item = (data[sheet] || []).find((d) => d.no === no);
   if (!item) { showToast('❌ Regulasi tidak ditemukan.'); return; }
@@ -930,8 +1072,8 @@ window.editRegulasi = function (sheet, no) {
 
 // --- Hapus regulasi ---
 window.deleteRegulasi = function (sheet, no) {
-  if (!isAdmin()) { showToast('🔒 Aktifkan Mode Admin dahulu.'); return; }
   if (sheet !== currentSheet) return;
+  if (!ensureAdminAccess()) return;
   const data = loadData();
   const existing = data[sheet] || [];
   const item = existing.find((d) => d.no === no);
@@ -955,14 +1097,6 @@ window.deleteRegulasi = function (sheet, no) {
 };
 
 // --- Init ---
-document.getElementById('btnAdminLock').addEventListener('click', () => {
-  if (isAdmin()) {
-    if (confirm('Matikan Mode Admin di perangkat ini?')) lockAdmin();
-  } else {
-    unlockAdmin();
-  }
-});
-applyAdminVisibility();
 renderAll();
 initCloudSync();
 
