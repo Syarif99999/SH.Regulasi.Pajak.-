@@ -12,6 +12,8 @@
 <!-- Library via CDN, tanpa server, cocok untuk GitHub Pages -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
@@ -194,12 +196,14 @@
   <div id="listContainer"></div>
 
   <div class="admin-panel" id="adminPanel" style="display:none">
-    <h3>Impor dari Excel (menambahkan ke daftar)</h3>
+    <h3>Impor dari PDF atau Word (menambahkan ke daftar)</h3>
     <p style="font-size:11.5px;color:var(--gray);margin-top:-4px">
-      Kolom wajib: <code>NO, PERATURAN, NOMOR, TANGGAL, TENTANG, LINK, KETERANGAN</code> — sama seperti templat rekap regulasi kanda.
+      Mendukung <code>.pdf</code> dan <code>.docx</code>. Agar hasil paling akurat, gunakan label
+      <code>PERATURAN</code>, <code>NOMOR</code>, <code>TANGGAL</code>, <code>TENTANG</code>,
+      <code>LINK</code>, dan <code>KETERANGAN</code> pada dokumen.
     </p>
-    <div class="dropzone" id="dropzone">⬆️ Seret file .xlsx ke sini, atau klik untuk memilih</div>
-    <input type="file" id="fileInput" accept=".xlsx" style="display:none" />
+    <div class="dropzone" id="dropzone">⬆️ Seret file PDF atau Word (.docx) ke sini, atau klik untuk memilih</div>
+    <input type="file" id="fileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" />
 
     <h3 style="margin-top:18px">Atau tambah manual</h3>
     <div id="formTambah" style="display:none">
@@ -678,77 +682,64 @@ window.printRegulasi = function (sheet, no) {
 };
 
 // =============================================================================
-// IMPOR EXCEL — menambahkan baris baru ke sheet aktif
+// IMPOR PDF / WORD — membaca teks dokumen dan menambahkan regulasi ke sheet aktif
 // =============================================================================
-async function importExcel(file) {
+function fieldFromText(text, label) {
+  const labels = 'PERATURAN|NOMOR|TANGGAL|TENTANG|LINK|KETERANGAN|STATUS';
+  const re = new RegExp('(?:^|\n)\s*' + label + '\s*[:\-]?\s*(.*?)(?=\n\s*(?:' + labels + ')\s*[:\-]|$)', 'i');
+  const match = text.match(re);
+  return match ? match[1].replace(/\s+/g, ' ').trim() : '';
+}
+function parseRegulationText(text) {
+  const clean = String(text || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const lines = clean.split('\n').map((line) => line.trim()).filter((line) => line && !/^[-–—]?\s*halaman\s+\d+/i.test(line));
+  let blocks = clean.split(/\n\s*\n+/).map((b) => b.trim()).filter(Boolean);
+  if (blocks.length < 2) {
+    const starts = lines.reduce((acc, line, i) => /^\d+[.)\-]\s+/.test(line) ? acc.concat(i) : acc, []);
+    if (starts.length > 1) blocks = starts.map((start, i) => lines.slice(start, starts[i + 1] || lines.length).join('\n'));
+  }
+  const records = [];
+  blocks.forEach((block) => {
+    const raw = block.replace(/\s+/g, ' ').trim();
+    if (raw.length < 12 || /^(no|nomor|peraturan|tanggal|tentang|keterangan|status)$/i.test(raw)) return;
+    const peraturanMatch = raw.match(/(Peraturan Daerah|Peraturan Bupati|Surat Keputusan(?: Bupati Paser)?|Keputusan Bupati(?: Paser)?|Surat Edaran(?: Bupati Paser)?|Surat Perubahan)/i);
+    const nomor = fieldFromText(block, 'NOMOR') || ((raw.match(/^\\d+[.)\\-]?\\s+(.{0,100}?)(?=\\s+(?:Peraturan|Nomor|Tanggal|Tentang)\\b)/i) || [])[1] || '');
+    const tanggal = fieldFromText(block, 'TANGGAL') || ((raw.match(/(?:tanggal|tgl\\.)\\s*[:\\-]?\\s*([^.;,]+(?:\\s+\\d{4})?)/i) || [])[1] || '');
+    const tentang = fieldFromText(block, 'TENTANG') || ((raw.match(/(?:tentang|perihal)\\s*[:\\-]?\\s*(.+?)(?=\\s+(?:link|keterangan|status)\\s*[:\\-]|$)/i) || [])[1] || '');
+    const link = fieldFromText(block, 'LINK') || ((raw.match(/https?:\/\/\S+/i) || [])[0] || '');
+    const status = fieldFromText(block, 'KETERANGAN') || fieldFromText(block, 'STATUS') || ((raw.match(/\b(DITERBITKAN|ON PROGRES|DICABUT)\b/i) || [])[1] || '');
+    const fallbackTitle = raw.replace(/^\d+[.)\-]?\s*/, '').replace(/(PERATURAN|NOMOR|TANGGAL|TENTANG|LINK|KETERANGAN|STATUS)\s*[:\-]?/gi, '').trim();
+    if (!peraturanMatch && !nomor && !tentang && !fallbackTitle) return;
+    records.push({ peraturan: peraturanMatch ? peraturanMatch[1] : currentSheet === 'HIMBAUAN' ? 'Surat Edaran' : 'Peraturan Daerah', nomor: nomor.trim(), tanggal: tanggal.trim(), tentang: (tentang || fallbackTitle).trim(), link: link.trim() || null, keterangan: status.trim() || 'DITERBITKAN' });
+  });
+  return records.filter((item) => item.tentang || item.nomor);
+}
+async function readImportText(file) {
   const buffer = await file.arrayBuffer();
-  let wb;
+  if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const pages = [];
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      pages.push(content.items.map((item) => item.str).join(' '));
+    }
+    return pages.join('\n\n');
+  }
+  if (file.name.toLowerCase().endsWith('.docx')) return (await mammoth.extractRawText({ arrayBuffer: buffer })).value;
+  throw new Error('Format tidak didukung. Gunakan PDF atau Word .docx.');
+}
+async function importDocument(file) {
   try {
-    wb = XLSX.read(buffer, { type: 'array' });
-  } catch (err) {
-    showToast('❌ Berkas Excel rusak atau bukan format .xlsx yang valid.');
-    return;
-  }
-
-  // Coba cocokkan nama sheet dengan tab aktif, fallback ke sheet pertama
-  const sheetName = wb.SheetNames.find((n) => n.toUpperCase() === currentSheet) || wb.SheetNames[0];
-  const sheet = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-  // Cari baris header (mengandung "NO" dan "PERATURAN")
-  let headerIdx = rows.findIndex((r) =>
-    r.some((c) => String(c).trim().toUpperCase() === 'NO') &&
-    r.some((c) => String(c).trim().toUpperCase() === 'PERATURAN')
-  );
-  if (headerIdx === -1) {
-    showToast('❌ Header kolom (NO, PERATURAN, NOMOR, TANGGAL, TENTANG, LINK, KETERANGAN) tidak ditemukan.');
-    return;
-  }
-
-  const header = rows[headerIdx].map((h) => String(h).trim().toUpperCase());
-  const idx = {
-    no: header.indexOf('NO'),
-    peraturan: header.indexOf('PERATURAN'),
-    nomor: header.indexOf('NOMOR'),
-    tanggal: header.indexOf('TANGGAL'),
-    tentang: header.indexOf('TENTANG'),
-    link: header.indexOf('LINK'),
-    keterangan: header.indexOf('KETERANGAN'),
-  };
-
-  const data = loadData();
-  const existing = data[currentSheet] || [];
-  let maxNo = existing.reduce((m, d) => Math.max(m, d.no || 0), 0);
-  let ditambahkan = 0;
-
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const r = rows[i];
-    const peraturan = idx.peraturan >= 0 ? String(r[idx.peraturan] || '').trim() : '';
-    const tentang = idx.tentang >= 0 ? String(r[idx.tentang] || '').trim() : '';
-    if (!peraturan && !tentang) continue; // lewati baris kosong/pemisah
-
-    maxNo += 1;
-    existing.push({
-      no: maxNo,
-      peraturan: peraturan || '-',
-      nomor: idx.nomor >= 0 ? String(r[idx.nomor] || '').trim() : '',
-      tanggal: idx.tanggal >= 0 ? String(r[idx.tanggal] || '').trim() : '',
-      tentang: tentang || '-',
-      link: idx.link >= 0 ? String(r[idx.link] || '').trim() || null : null,
-      keterangan: idx.keterangan >= 0 ? String(r[idx.keterangan] || '').trim() : '',
-    });
-    ditambahkan++;
-  }
-
-  if (ditambahkan === 0) {
-    showToast('⚠️ Tidak ada baris data baru yang terbaca dari berkas ini.');
-    return;
-  }
-
-  data[currentSheet] = existing;
-  saveData(data);
-  renderAll();
-  showToast(`✅ ${ditambahkan} regulasi berhasil ditambahkan dari Excel.`);
+    const records = parseRegulationText(await readImportText(file));
+    if (!records.length) { showToast('⚠️ Tidak ada data regulasi terbaca. Pastikan PDF bukan hasil scan gambar dan gunakan label PERATURAN, NOMOR, TANGGAL, TENTANG.'); return; }
+    const data = loadData(); const existing = data[currentSheet] || [];
+    let maxNo = existing.reduce((m, d) => Math.max(m, d.no || 0), 0);
+    records.forEach((record) => existing.push({ no: ++maxNo, ...record }));
+    data[currentSheet] = existing; saveData(data); renderAll();
+    showToast(`✅ ${records.length} regulasi berhasil diimpor dari ${file.name}.`);
+  } catch (err) { console.error(err); showToast(`❌ Gagal membaca dokumen: ${err.message || 'format tidak valid'}`); }
 }
 
 // =============================================================================
@@ -992,10 +983,10 @@ dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active')
 dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropzone.classList.remove('active');
-  if (e.dataTransfer.files[0]) importExcel(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files[0]) importDocument(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener('change', (e) => {
-  if (e.target.files[0]) importExcel(e.target.files[0]);
+  if (e.target.files[0]) importDocument(e.target.files[0]);
   fileInput.value = '';
 });
 
