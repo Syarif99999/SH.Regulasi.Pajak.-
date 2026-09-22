@@ -34,9 +34,13 @@
   header {
     background: linear-gradient(135deg, var(--navy), var(--navy2));
     color: white; padding: 22px 18px 60px;
+    position: relative;
   }
   header .top { display:flex; align-items:center; gap:10px; }
   header .badge { background: var(--gold); color: var(--navy); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 5px; }
+  .subtle-lock { position:absolute; top:9px; right:12px; width:22px; height:22px; padding:0; border:0; background:transparent; color:rgba(255,255,255,.28); font-size:13px; cursor:pointer; opacity:.55; transition:opacity .2s,color .2s,transform .2s; }
+  .subtle-lock:hover, .subtle-lock:focus-visible { color:rgba(255,255,255,.9); opacity:1; transform:scale(1.12); outline:none; }
+  .subtle-lock.unlocked { color:rgba(239,208,92,.85); opacity:.8; }
   header h1 { font-size: 19px; margin: 10px 0 2px; }
   header p { margin: 0; font-size: 12.5px; opacity: 0.85; }
 
@@ -135,6 +139,7 @@
     <span class="badge">BAPENDA KABUPATEN PASER</span>
     <span class="badge" id="syncStatus" style="background:#334966;color:#fff;">⏳ Menyambungkan...</span>
   </div>
+    <button class="subtle-lock" id="btnToggleAdmin" type="button" aria-label="Akses admin" title="Akses admin">🔒</button>
   <h1>Regulasi Pajak Daerah</h1>
   <p>Kumpulan Perda, Perbup, SK, dan Surat Edaran terkait pajak &amp; retribusi daerah — bisa diakses seluruh pegawai.</p>
   <p style="margin-top:4px;font-size:11px;opacity:0.75">
@@ -173,7 +178,6 @@
     <div class="actions">
       <button class="btn btn-navy admin-only" id="btnTambah">➕ Tambah Regulasi</button>
       <button class="btn btn-outline admin-only" id="btnExportPdf">📄 Unduh PDF</button>
-      <button class="btn btn-gold" id="btnToggleAdmin">🔒 Buka Kunci Admin</button>
       <button class="btn btn-outline admin-only" id="btnBackup">💾 Backup Data</button>
       <button class="btn btn-outline admin-only" id="btnRestore">♻️ Pulihkan Data</button>
       <input type="file" id="restoreInput" accept=".json" style="display:none" />
@@ -194,11 +198,12 @@
   <div id="listContainer"></div>
 
   <div id="accessNotice" style="margin:10px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-size:12px;text-align:center">
-    🔒 <strong>Mode lihat saja.</strong> Dokumen dapat dibaca, dibuka, dan dicetak. Tekan <strong>Buka Kunci Admin</strong> untuk mengelola data.
+    🔒 <strong>Mode lihat saja.</strong> Dokumen dapat dibaca, dibuka, dan dicetak.
   </div>
 
   <div class="admin-panel" id="adminPanel" style="display:none">
     <h3>Impor dari PDF atau Word (menambahkan ke daftar)</h3>
+    <button class="btn btn-outline admin-only" id="btnChangePassword" type="button">🔑 Ganti Password Admin</button>
     <p style="font-size:11.5px;color:var(--gray);margin-top:-4px">
       Mendukung <code>.pdf</code> dan <code>.docx</code>. Agar hasil paling akurat, gunakan label
       <code>PERATURAN</code>, <code>NOMOR</code>, <code>TANGGAL</code>, <code>TENTANG</code>,
@@ -252,7 +257,7 @@
 const LS_KEY = 'warkop_regulasi_data';
 let currentSheet = 'REGULASI';
 
-// --- Data awal (hasil impor dari Rekap_Regulasi_Pajak_Daerah.xlsx) ---
+// --- Data awal regulasi ---
 const SEED_DATA = {
   REGULASI: [{"no": 1, "peraturan": "Peraturan Daerah (PERDA)", "nomor": "1 Tahun 2024", "tanggal": "4 Januari 2024", "tentang": "Pajak Daerah dan Retribusi Daerah", "link": "https://drive.google.com/file/d/1kmFa1nAwuK0B4gnTmM5cYuOWuglbgWzB/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 2, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 39 Tahun 2024", "tanggal": "10 Desember 2024", "tentang": "Pembebasan Bea Perolehan Hak Atas Tanah dan Bangunan Bagi Masyarakat Berpenghasilan Rendah", "link": "https://drive.google.com/file/d/19XngdKfrVp0APPnr-NgU5olEdURALKP6/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 3, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-1226/2024", "tanggal": "12 Desember 2024", "tentang": "Standar Operasional Prosedur (SOP) Pajak Daerah", "link": null, "keterangan": "DITERBITKAN"}, {"no": 4, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 48 Tahun 2024", "tanggal": "27 Desember 2024", "tentang": "Tata Cara Pemungutan dan Pemanfaatan Retribusi Persetujuan Bangunan Sedang", "link": "https://drive.google.com/file/d/1ZW5WbuQ4WKWbk_w4YTpo1Lkz286eRVvp/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 5, "peraturan": "Surat Edaran", "nomor": "Nomor 47 Tahun 2025", "tanggal": "3 Januari 2025", "tentang": "Penggunaan Plat Nomor Kendaraan Kabupaten Paser", "link": "https://drive.google.com/file/d/1YxWa8staeotsFIqRAPrgJH5u3NQB1rP2/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 6, "peraturan": "Peraturan Bupati (PERBUB)", "nomor": "Nomor 2 Tahun 2025", "tanggal": "21 Januari 2025", "tentang": "Tata Cara Pemungutan Pajak Daerah", "link": "https://drive.google.com/file/d/1FtCi6LeT7SYzBoi0c1AprthQeftaIYnp/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 7, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-62/2025", "tanggal": null, "tentang": "Penetapan Besarnya Insentif dan Penerima Pembayaran", "link": null, "keterangan": "DITERBITKAN (TIDAK UNTUK UMUM)"}, {"no": 8, "peraturan": "Surat Edaran", "nomor": "Nolmor 150 Tahun 2025", "tanggal": "17 Februari 2025", "tentang": "Pembayaran Pajak Daerah/Retribusi Daerah Secara Online", "link": null, "keterangan": "DITERBITKAN"}, {"no": 9, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "Nomor 100.3.3.2/Kep-186/2025", "tanggal": null, "tentang": "SOP Penerimaan Opsen Pajak Kendaraan Bermotor dan Opsen BBNKB dan Opsen MBLB", "link": null, "keterangan": "DITERBITKAN"}, {"no": 10, "peraturan": "Surat Edaran Bupati Paser", "nomor": "Nomor 304 Tahun 2025", "tanggal": "16 Juni 2025", "tentang": "Kepatuhan Aparatur Sipil Negara Di Lingkungan Peerintah Daerah Kabupaten Paser Terhadap Pembayaran Pajak Bumi dan Bangunan Perdesaan Perkotaan", "link": "https://drive.google.com/file/d/1HbXvHUk8sooAg_oyozFOBi9GEkK-Gv-D/view?usp=sharing", "keterangan": "DITERBITKAN"}, {"no": 11, "peraturan": "Peraturan Bupati (PERBUB) Paser", "nomor": "Nomor 39 Tahun 2023", "tanggal": "15 Maret 2023", "tentang": "Pembebasan Bea Perolehan Hak Atas Tanah dan Bangunan Bagi Masyarakat Penerima Sertifikat Dalam Kegiatan Pendaftaran Tanah Sistematis Lengkap", "link": "https://drive.google.com/file/d/1NU6dRA0x9-OS_APuW5mV1-UnASYQfjKB/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 12, "peraturan": "Peraturan Bupati (PERBUB) Paser", "nomor": "Nomor 3 Tahun 2025", "tanggal": "22 Januari 2025", "tentang": "Tata Cara Pemungutan Retribusi Penggunaan Tenaga Kerja Asing", "link": null, "keterangan": "DITERBITKAN"}, {"no": 13, "peraturan": "Surat Perubahan", "nomor": "900.1.13.1/499/Bapenda-P2SP2D/X/2025", "tanggal": "14 Oktober 2025", "tentang": "Tindak Lanjut Surat Edaran Nomor 47 Tahun 2025 Tentang Penggunaan Plat Nomor", "link": null, "keterangan": "ON PROGRES"}, {"no": 14, "peraturan": "Surat Edaran", "nomor": "Nomor 313 Tahun 2025", "tanggal": "23 Juni 2025", "tentang": "Kepatuhan Kepada Desa, Perangkat Desa, Anggota Badan Permusyawaratan Desa dan Lembaga Kemasyarakatan Desa Terhadap Pembayaran PBB-P2 ", "link": null, "keterangan": "ON PROGRES"}, {"no": 15, "peraturan": "Keputusan Bupati Paser", "nomor": "100.3.3.2/Kep-409/2025", "tanggal": "14 Mei 2025", "tentang": "Penetapan NJOP Sebagai Dasar Pengenaan PBB-P2", "link": null, "keterangan": "DICABUT"}, {"no": 16, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEР-426/2025", "tanggal": "20 Mei 2025", "tentang": "426. PEMBERIAN PENGURANGANATAS POKOK PIUTANG KETETAPAN DAN PENGHAPUSAN SANKSI ADMINISTRATIF PAJAK BUMI DAN BANGUNAN PERDESAAN DAN PERKOTAAN", "link": "https://drive.google.com/file/d/1l2npZ1uNRLkHo5AusUf5bwgQgt43ObLI/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 17, "peraturan": "Surat Keputusan (SK) Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEР-117/2026", "tanggal": "5 Februari 2026", "tentang": "PEMBERIAN PENGURANGAN ATAS РОКOК KETETAPAN DAN PENGHAPUSAN SANKSI\nADMINISTRATIF PAJAK BUMI DAN BANGUNAN PERDESAAN DAN PERKOTAAN (PBB-P2)", "link": "https://drive.google.com/file/d/1Yg_8UUXtzzcsmXmfZq0FIzONmzQgYlb1/view?usp=drive_link", "keterangan": "DITERBITKAN"}, {"no": 18, "peraturan": "Keputusan Bupati Paser", "nomor": "NOMOR 100.3.3.2/KEP-98/2026", "tanggal": "30 Januari 2026", "tentang": "PENETAPAN NILAI JUAL OBJEK PAJAK SEBAGAI DASAR PENGENAAN PAJAK BUMI DAN\nBANGUNAN SEKTOR PERDESAAN' DAN PERKOTAAN", "link": "https://drive.google.com/file/d/1aXqUwiFvsYRhiDxUgfGAsroxc0OFb1Lg/view?usp=drive_link", "keterangan": "DITERBITKAN"}],
   HIMBAUAN: []
@@ -611,6 +616,29 @@ function lockAdmin() {
   showToast('🔒 Mode lihat saja aktif. Data tidak dapat diubah.');
 }
 
+function changeAdminPin() {
+  if (!ensureAdminAccess()) return;
+  const lama = prompt('Masukkan password admin saat ini:');
+  if (lama === null) return;
+  if (lama !== getAdminPin()) {
+    showToast('❌ Password lama salah.');
+    return;
+  }
+  const baru = prompt('Masukkan password admin baru (minimal 6 karakter):');
+  if (baru === null) return;
+  if (baru.length < 6) {
+    showToast('⚠️ Password baru minimal 6 karakter.');
+    return;
+  }
+  const ulangi = prompt('Ulangi password admin baru:');
+  if (ulangi !== baru) {
+    showToast('❌ Konfirmasi password tidak cocok.');
+    return;
+  }
+  localStorage.setItem(ADMIN_PIN_KEY, baru);
+  showToast('✅ Password admin berhasil diganti.');
+}
+
 function updateAdminUI() {
   const unlocked = isAdminUnlocked();
   document.querySelectorAll('.admin-only').forEach((el) => {
@@ -618,13 +646,14 @@ function updateAdminUI() {
   });
   const btn = document.getElementById('btnToggleAdmin');
   if (btn) {
-    btn.textContent = unlocked ? '🔓 Kunci Admin' : '🔒 Buka Kunci Admin';
-    btn.classList.toggle('btn-gold', !unlocked);
-    btn.classList.toggle('btn-outline', unlocked);
+    btn.textContent = unlocked ? '🔓' : '🔒';
+    btn.title = unlocked ? 'Kunci mode admin' : 'Akses admin';
+    btn.setAttribute('aria-label', unlocked ? 'Kunci mode admin' : 'Akses admin');
+    btn.classList.toggle('unlocked', unlocked);
   }
   const notice = document.getElementById('accessNotice');
   if (notice) notice.innerHTML = unlocked
-    ? '🔓 <strong>Mode Admin aktif.</strong> Anda dapat menambah, mengimpor PDF/Word, mengedit, menghapus, dan mencadangkan data. Tekan <strong>Kunci Admin</strong> setelah selesai.'
+    ? '🔓 <strong>Mode Admin aktif.</strong> Anda dapat menambah, mengimpor PDF/Word, mengedit, menghapus, dan mencadangkan data. Klik ikon gembok lagi setelah selesai.'
     : '🔒 <strong>Mode lihat saja.</strong> Dokumen dapat dibaca, dibuka, dan dicetak. Tekan <strong>Buka Kunci Admin</strong> untuk mengelola data.';
 }
 
@@ -971,8 +1000,10 @@ document.getElementById('btnToggleAdmin').addEventListener('click', () => {
   }
   if (!ensureAdminAccess()) return;
   updateAdminUI();
+  renderAll();
   document.getElementById('adminPanel').style.display = 'block';
 });
+document.getElementById('btnChangePassword').addEventListener('click', changeAdminPin);
 document.getElementById('btnTambah').addEventListener('click', () => {
   if (!ensureAdminAccess()) return;
   editingNo = null;
