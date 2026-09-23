@@ -197,6 +197,12 @@
     <strong>"Add to Home Screen"</strong>.
   </p>
 
+  <p id="webviewHint" style="display:none;font-size:11.5px;color:#7a5a1f;text-align:center;margin:8px 0 0;background:#fff8e1;border:1px solid #f0d98c;border-radius:8px;padding:6px 10px">
+    ⚠️ Link ini sepertinya dibuka dari dalam aplikasi WhatsApp/Instagram/Facebook, sehingga tombol "Install" tidak akan
+    berfungsi. Ketuk menu <strong>titik tiga (⋮)</strong> di pojok kanan atas, lalu pilih
+    <strong>"Buka di Browser"</strong> / <strong>"Open in Chrome"</strong> terlebih dahulu, baru tombol Install bisa dipakai.
+  </p>
+
   <div class="stats" id="stats"></div>
 
   <div id="resultCount" style="font-size:11.5px;color:var(--gray);margin:0 2px 8px"></div>
@@ -1269,7 +1275,9 @@ btnInstall.addEventListener('click', async () => {
   // atau menunya beda per platform) — tampilkan cara manual.
   const ua = navigator.userAgent.toLowerCase();
   let pesan;
-  if (/iphone|ipad|ipod/.test(ua)) {
+  if (typeof isInAppWebview !== 'undefined' && isInAppWebview) {
+    pesan = 'Link ini sepertinya dibuka di dalam aplikasi WhatsApp/Instagram/Facebook — browser bawaan aplikasi itu tidak bisa instal PWA. Ketuk menu titik tiga (⋮) di pojok kanan atas, pilih "Buka di Browser" / "Open in Chrome", lalu coba tombol Install lagi dari sana.';
+  } else if (/iphone|ipad|ipod/.test(ua)) {
     pesan = 'Di Safari: ketuk ikon Share (kotak dengan panah ke atas), lalu pilih "Add to Home Screen".';
   } else if (/android/.test(ua)) {
     pesan = 'Di Chrome: ketuk menu titik tiga (⋮) di pojok kanan atas, lalu pilih "Install app" / "Tambahkan ke layar Utama".';
@@ -1293,6 +1301,18 @@ window.addEventListener('appinstalled', () => {
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 if (isIOS && !isStandaloneNow()) {
   installHint.style.display = 'block';
+}
+
+// Deteksi in-app browser (WhatsApp/Instagram/Facebook/Line/dsb) yang TIDAK
+// mendukung instal PWA sama sekali — ini penyebab paling umum tombol
+// "Install" terasa tidak berfungsi saat link dibuka lewat WhatsApp.
+const uaLower = navigator.userAgent.toLowerCase();
+const isInAppWebview =
+  /fban|fbav|instagram|line\/|micromessenger|; wv\)|whatsapp/.test(uaLower) ||
+  (isIOS && !/safari/.test(uaLower)); // Safari asli selalu punya token "safari" di UA-nya
+const webviewHint = document.getElementById('webviewHint');
+if (isInAppWebview && webviewHint) {
+  webviewHint.style.display = 'block';
 }
 
 // =============================================================================
